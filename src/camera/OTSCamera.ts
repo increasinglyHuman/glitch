@@ -3,7 +3,7 @@ import type { Mannequin } from '../character/Mannequin.js';
 
 const HEIGHT_OFFSET = 1.6;
 const SPRING_STRENGTH = 0.08;
-const ALPHA_BLEND = 0.02;
+const ALPHA_BLEND = 0.08;
 const RADIUS_LERP = 0.12;
 const BETA_LERP = 0.06;
 const DEFAULT_RADIUS = 3.5;

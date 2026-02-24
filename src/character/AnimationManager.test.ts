@@ -95,4 +95,60 @@ describe('AnimationManager', () => {
     mgr.update('jumping', DT); // still going up
     expect(mgr.getCurrentState()).toBe('jump');
   });
+
+  // --- Flight tests ---
+
+  it('transitions idle → fly on flying input', () => {
+    const mgr = new AnimationManager();
+    mgr.update('flying', DT);
+    expect(mgr.getCurrentState()).toBe('fly');
+  });
+
+  it('transitions walk → fly on flying input', () => {
+    const mgr = new AnimationManager();
+    mgr.update('walking', DT);
+    mgr.update('flying', DT);
+    expect(mgr.getCurrentState()).toBe('fly');
+  });
+
+  it('transitions run → fly on flying input', () => {
+    const mgr = new AnimationManager();
+    mgr.update('running', DT);
+    mgr.update('flying', DT);
+    expect(mgr.getCurrentState()).toBe('fly');
+  });
+
+  it('fly → land when grounded (flight exit)', () => {
+    const mgr = new AnimationManager();
+    mgr.update('flying', DT);
+    expect(mgr.getCurrentState()).toBe('fly');
+    mgr.update('idle', DT); // landed
+    expect(mgr.getCurrentState()).toBe('land');
+  });
+
+  it('land → idle on ground contact after flight', () => {
+    const mgr = new AnimationManager();
+    mgr.update('flying', DT);
+    mgr.update('idle', DT); // fly → land
+    expect(mgr.getCurrentState()).toBe('land');
+    mgr.update('idle', DT); // land → idle
+    expect(mgr.getCurrentState()).toBe('idle');
+  });
+
+  it('fall → fly when flight activated mid-fall', () => {
+    const mgr = new AnimationManager();
+    mgr.update('walking', DT);
+    mgr.update('falling', DT); // walked off ledge
+    expect(mgr.getCurrentState()).toBe('fall');
+    mgr.update('flying', DT); // E key mid-fall
+    expect(mgr.getCurrentState()).toBe('fly');
+  });
+
+  it('fly stays in fly while still flying', () => {
+    const mgr = new AnimationManager();
+    mgr.update('flying', DT);
+    mgr.update('flying', DT);
+    mgr.update('flying', DT);
+    expect(mgr.getCurrentState()).toBe('fly');
+  });
 });

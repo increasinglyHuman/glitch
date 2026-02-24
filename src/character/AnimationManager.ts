@@ -12,10 +12,11 @@ const STATE_TO_ANIM: Record<AnimationState, string> = {
   jump: 'Jump',
   fall: 'Float-fly',
   land: 'Landing',
+  fly: 'Float-fly',
 };
 
 /** Which states should loop vs play once */
-const LOOPING_STATES: Set<AnimationState> = new Set(['idle', 'walk', 'run', 'fall']);
+const LOOPING_STATES: Set<AnimationState> = new Set(['idle', 'walk', 'run', 'fall', 'fly']);
 
 /** Speed ratio overrides per state */
 const SPEED_RATIOS: Partial<Record<AnimationState, number>> = {
@@ -65,6 +66,7 @@ export class AnimationManager {
         else if (movementState === 'running') this.currentState = 'run';
         else if (movementState === 'jumping') this.currentState = 'jump';
         else if (movementState === 'falling') this.currentState = 'fall';
+        else if (movementState === 'flying') this.currentState = 'fly';
         break;
 
       case 'walk':
@@ -72,6 +74,7 @@ export class AnimationManager {
         else if (movementState === 'running') this.currentState = 'run';
         else if (movementState === 'jumping') this.currentState = 'jump';
         else if (movementState === 'falling') this.currentState = 'fall';
+        else if (movementState === 'flying') this.currentState = 'fly';
         break;
 
       case 'run':
@@ -79,6 +82,7 @@ export class AnimationManager {
         else if (movementState === 'walking') this.currentState = 'walk';
         else if (movementState === 'jumping') this.currentState = 'jump';
         else if (movementState === 'falling') this.currentState = 'fall';
+        else if (movementState === 'flying') this.currentState = 'fly';
         break;
 
       case 'jump':
@@ -95,16 +99,24 @@ export class AnimationManager {
       case 'fall':
         // Fall (Float-fly) is for walking off ledges, not post-jump.
         // Go directly to idle/walk/run when grounded.
-        if (movementState === 'idle' || movementState === 'walking' || movementState === 'running') {
+        // Can activate flight mid-fall.
+        if (movementState === 'flying') this.currentState = 'fly';
+        else if (movementState === 'idle' || movementState === 'walking' || movementState === 'running') {
           if (movementState === 'walking') this.currentState = 'walk';
           else if (movementState === 'running') this.currentState = 'run';
           else this.currentState = 'idle';
         }
         break;
 
+      case 'fly':
+        // Flying: FlyUp animation loops. Exit to Landing when grounded.
+        if (movementState === 'idle' || movementState === 'walking' || movementState === 'running') {
+          this.currentState = 'land';
+        }
+        break;
+
       case 'land':
-        // Landing is reserved for flight → ground (future).
-        // For now, immediately transition to grounded state.
+        // Landing plays once after flight → ground, then transitions out.
         if (movementState === 'walking') this.currentState = 'walk';
         else if (movementState === 'running') this.currentState = 'run';
         else this.currentState = 'idle';

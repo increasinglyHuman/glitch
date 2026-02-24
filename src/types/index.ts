@@ -12,9 +12,9 @@ export type CameraMode = 'orbit' | 'ots';
 
 export type GlitchState = 'idle' | 'loading' | 'running' | 'disposed';
 
-export type MovementState = 'idle' | 'walking' | 'running' | 'jumping' | 'falling';
+export type MovementState = 'idle' | 'walking' | 'running' | 'jumping' | 'falling' | 'flying';
 
-export type AnimationState = 'idle' | 'walk' | 'run' | 'jump' | 'fall' | 'land';
+export type AnimationState = 'idle' | 'walk' | 'run' | 'jump' | 'fall' | 'land' | 'fly';
 
 export interface Vec3 {
   x: number;

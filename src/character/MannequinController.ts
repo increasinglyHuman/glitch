@@ -4,6 +4,7 @@ import type { MovementState } from '../types/index.js';
 
 const WALK_SPEED = 3.0;
 const RUN_SPEED = 7.0;
+const FLY_SPEED = 3.0;
 const BACKWARD_MULTIPLIER = 0.7;
 const STRAFE_MULTIPLIER = 0.8;
 const GRAVITY = -9.81;
@@ -23,6 +24,7 @@ export class MannequinController {
 
   private velocity = Vector3.Zero();
   private isGrounded = true;
+  private isFlying = false;
   private jumpRequested = false;
   private isPlayingJump = false;
   private jumpAnimTimer = 0;
@@ -67,10 +69,25 @@ export class MannequinController {
       case 'KeyD': case 'ArrowRight': this.keys.right = true; break;
       case 'ShiftLeft': case 'ShiftRight': this.keys.shift = true; break;
       case 'Space':
-        if (this.isGrounded) {
+        this.keys.jump = true;
+        if (this.isGrounded && !this.isFlying) {
           this.jumpRequested = true;
         }
         e.preventDefault();
+        break;
+      case 'KeyE':
+        if (this.isFlying) {
+          // Exit flight — gravity will take over
+          this.isFlying = false;
+          console.log('[Glitch][Fly] EXIT');
+        } else {
+          // Enter flight — initial upward boost to clear ground
+          this.isFlying = true;
+          this.isGrounded = false;
+          this.velocity.y = FLY_SPEED;
+          this.isPlayingJump = false; // cancel jump if mid-jump
+          console.log('[Glitch][Fly] ENTER');
+        }
         break;
     }
   }
@@ -82,13 +99,14 @@ export class MannequinController {
       case 'KeyA': case 'ArrowLeft': this.keys.left = false; break;
       case 'KeyD': case 'ArrowRight': this.keys.right = false; break;
       case 'ShiftLeft': case 'ShiftRight': this.keys.shift = false; break;
+      case 'Space': this.keys.jump = false; break;
     }
   }
 
   private update(dt: number): void {
     const pos = this.mannequin.getPosition();
     const root = this.mannequin.getRootNode();
-    const speed = this.keys.shift ? RUN_SPEED : WALK_SPEED;
+    const speed = this.isFlying ? WALK_SPEED : (this.keys.shift ? RUN_SPEED : WALK_SPEED);
     const movingForwardOrBack = this.keys.forward || this.keys.backward;
 
     // Rotation: A/D turn when W/S is held
@@ -147,8 +165,21 @@ export class MannequinController {
       if (Math.abs(this.velocity.z) < 0.01) this.velocity.z = 0;
     }
 
+    // Flight vertical movement: Space=ascend, Shift=descend
+    if (this.isFlying) {
+      if (this.keys.jump) {
+        this.velocity.y = FLY_SPEED;
+      } else if (this.keys.shift) {
+        this.velocity.y = -FLY_SPEED;
+      } else {
+        // Decelerate vertical when no input
+        this.velocity.y *= Math.max(0, 1 - 10 * dt);
+        if (Math.abs(this.velocity.y) < 0.01) this.velocity.y = 0;
+      }
+    }
+
     // Jump — animation-only (the Jump animation handles vertical motion visually)
-    if (this.jumpRequested && this.isGrounded && !this.isPlayingJump) {
+    if (this.jumpRequested && this.isGrounded && !this.isPlayingJump && !this.isFlying) {
       this.isPlayingJump = true;
       this.jumpAnimTimer = 0;
       this.jumpRequested = false;
@@ -162,14 +193,14 @@ export class MannequinController {
       }
     }
 
-    // Gravity (only for actual falling — walking off ledges, not jumps)
-    if (!this.isGrounded) {
+    // Gravity (only for actual falling — not jumps, not flight)
+    if (!this.isGrounded && !this.isFlying) {
       this.velocity.y += GRAVITY * dt;
     }
 
-    // Apply velocity (no vertical physics during animation jump)
+    // Apply velocity
     pos.x += this.velocity.x * dt;
-    if (!this.isPlayingJump) {
+    if (!this.isPlayingJump || this.isFlying) {
       pos.y += this.velocity.y * dt;
     }
     pos.z += this.velocity.z * dt;
@@ -182,21 +213,32 @@ export class MannequinController {
     if (pick?.hit && pick.pickedPoint) {
       const groundY = pick.pickedPoint.y;
       if (pos.y <= groundY) {
-        if (!this.isGrounded) {
-          console.log(`[Glitch][Jump] LAND: vel.y=${this.velocity.y.toFixed(2)} pos.y=${pos.y.toFixed(3)} groundY=${groundY.toFixed(3)}`);
+        if (this.isFlying) {
+          // Only auto-exit flight when descending toward ground
+          if (this.velocity.y <= 0) {
+            this.isFlying = false;
+            console.log(`[Glitch][Fly] GROUND EXIT: pos.y=${pos.y.toFixed(3)} groundY=${groundY.toFixed(3)}`);
+          }
+          // Don't snap to ground while taking off
         }
-        pos.y = groundY;
-        this.velocity.y = 0;
-        this.isGrounded = true;
+        if (!this.isFlying) {
+          if (!this.isGrounded) {
+            console.log(`[Glitch][Jump] LAND: vel.y=${this.velocity.y.toFixed(2)} pos.y=${pos.y.toFixed(3)} groundY=${groundY.toFixed(3)}`);
+          }
+          pos.y = groundY;
+          this.velocity.y = 0;
+          this.isGrounded = true;
+        }
       }
     } else {
-      if (!this.isGrounded && this._debugJumpFrame++ % 30 === 0) {
+      if (!this.isGrounded && !this.isFlying && this._debugJumpFrame++ % 30 === 0) {
         console.log(`[Glitch][Jump] AIRBORNE: vel.y=${this.velocity.y.toFixed(2)} pos.y=${pos.y.toFixed(3)} rayHit=false`);
       }
       if (pos.y < -50) {
         // Safety net: respawn at origin if fallen through
         pos.set(0, 5, 0);
         this.velocity.set(0, 0, 0);
+        this.isFlying = false;
       }
     }
 
@@ -204,6 +246,7 @@ export class MannequinController {
   }
 
   getMovementState(): MovementState {
+    if (this.isFlying) return 'flying';
     if (this.isPlayingJump) return 'jumping';
     if (!this.isGrounded && this.velocity.y <= 0) return 'falling';
     const hSpeed = Math.sqrt(this.velocity.x ** 2 + this.velocity.z ** 2);
