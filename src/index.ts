@@ -26,17 +26,10 @@ async function boot(): Promise<void> {
     try {
       await lifecycle.spawn(config);
 
-      // Wire close handlers
+      // Wire close handler (close button only — no ESC kill)
       lifecycle.getHUD()?.onClose(() => {
         lifecycle.dispose();
         bridge.sendClose();
-      });
-
-      window.addEventListener('keydown', (e: KeyboardEvent) => {
-        if (e.code === 'Escape' && lifecycle.getState() === 'running') {
-          lifecycle.dispose();
-          bridge.sendClose();
-        }
       });
 
       bridge.sendReady();

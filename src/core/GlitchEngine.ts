@@ -3,7 +3,6 @@ import {
   Scene,
   Color4,
   WebGPUEngine,
-  ScenePerformancePriority,
 } from '@babylonjs/core';
 
 /**
@@ -59,7 +58,8 @@ export class GlitchEngine {
 
     this.scene = new Scene(this.engine);
     this.scene.clearColor = new Color4(0, 0, 0, 1);
-    this.scene.performancePriority = ScenePerformancePriority.Aggressive;
+    this.scene.autoClear = true;
+    this.scene.autoClearDepthAndStencil = true;
     this.scene.skipPointerMovePicking = true;
     this.scene.skipPointerUpPicking = true;
   }

@@ -1,13 +1,18 @@
-import { Scene, ArcRotateCamera, Vector3 } from '@babylonjs/core';
+import { Scene, ArcRotateCamera, Vector3, Observer } from '@babylonjs/core';
+import type { Mannequin } from '../character/Mannequin.js';
 
 /**
  * Orbit camera for Glitch. Left-drag rotate, right-drag pan, scroll zoom.
- * Config adapted from World's BabylonEngine.ts setupArcRotateCamera.
+ * Auto-tracks mannequin position as the orbit target.
  */
 export class OrbitCamera {
   private camera: ArcRotateCamera;
+  private scene: Scene;
+  private mannequin: Mannequin | null = null;
+  private trackObserver: Observer<Scene> | null = null;
 
   constructor(scene: Scene) {
+    this.scene = scene;
     this.camera = new ArcRotateCamera(
       'orbit',
       Math.PI / 4,
@@ -27,12 +32,33 @@ export class OrbitCamera {
     this.camera.panningSensibility = 50;
   }
 
+  setMannequin(mannequin: Mannequin): void {
+    this.mannequin = mannequin;
+  }
+
   activate(canvas: HTMLCanvasElement): void {
+    // Sync target to mannequin before attaching
+    if (this.mannequin) {
+      const pos = this.mannequin.getPosition();
+      this.camera.setTarget(new Vector3(pos.x, pos.y + 1.0, pos.z));
+    }
+
     this.camera.attachControl(canvas, true);
+
+    // Auto-track mannequin as orbit target
+    this.trackObserver = this.scene.onBeforeRenderObservable.add(() => {
+      if (!this.mannequin) return;
+      const pos = this.mannequin.getPosition();
+      this.camera.setTarget(new Vector3(pos.x, pos.y + 1.0, pos.z));
+    });
   }
 
   deactivate(): void {
     this.camera.detachControl();
+    if (this.trackObserver) {
+      this.scene.onBeforeRenderObservable.remove(this.trackObserver);
+      this.trackObserver = null;
+    }
   }
 
   setTarget(target: Vector3): void {
@@ -44,6 +70,7 @@ export class OrbitCamera {
   }
 
   dispose(): void {
+    this.deactivate();
     this.camera.dispose();
   }
 }

@@ -16,20 +16,15 @@ const HUD_STYLES = `
     padding: 4px 8px;
     position: absolute;
   }
-  #glitch-hud .hud-label {
-    top: 12px;
-    left: 12px;
-    font-size: 13px;
-  }
   #glitch-hud .hud-close {
     top: 12px;
     right: 12px;
     pointer-events: auto;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 16px;
     border: none;
     background: rgba(0, 0, 0, 0.5);
-    color: rgba(255, 255, 255, 0.7);
+    color: rgba(255, 255, 255, 0.5);
     border-radius: 4px;
     padding: 4px 10px;
     font-family: inherit;
@@ -37,12 +32,6 @@ const HUD_STYLES = `
   }
   #glitch-hud .hud-close:hover {
     color: #fff;
-  }
-  #glitch-hud .hud-camera-mode {
-    top: 44px;
-    right: 12px;
-    font-size: 11px;
-    opacity: 0.6;
   }
   #glitch-hud .hud-coords {
     bottom: 12px;
@@ -63,9 +52,7 @@ const HUD_STYLES = `
 export class HUD {
   private container: HTMLElement;
   private root: HTMLDivElement;
-  private labelEl: HTMLDivElement;
   private closeBtn: HTMLButtonElement;
-  private cameraModeEl: HTMLDivElement;
   private coordsEl: HTMLDivElement;
   private fpsEl: HTMLDivElement;
   private styleEl: HTMLStyleElement;
@@ -83,24 +70,12 @@ export class HUD {
     this.root = document.createElement('div');
     this.root.id = 'glitch-hud';
 
-    // Label
-    this.labelEl = document.createElement('div');
-    this.labelEl.className = 'hud-element hud-label';
-    this.labelEl.textContent = 'Glitch';
-    this.root.appendChild(this.labelEl);
-
-    // Close button
+    // Close button (just X, no text)
     this.closeBtn = document.createElement('button');
     this.closeBtn.className = 'hud-close';
-    this.closeBtn.textContent = '\u2715 Close';
+    this.closeBtn.textContent = '\u2715';
     this.closeBtn.addEventListener('click', () => this.closeCallback?.());
     this.root.appendChild(this.closeBtn);
-
-    // Camera mode
-    this.cameraModeEl = document.createElement('div');
-    this.cameraModeEl.className = 'hud-element hud-camera-mode';
-    this.cameraModeEl.textContent = 'Orbit \u00b7 Tab';
-    this.root.appendChild(this.cameraModeEl);
 
     // Coordinates
     this.coordsEl = document.createElement('div');
@@ -118,13 +93,12 @@ export class HUD {
     this.container.appendChild(this.root);
   }
 
-  setLabel(text: string): void {
-    this.labelEl.textContent = text;
+  setLabel(_text: string): void {
+    // Label removed for minimalism — no-op for API compatibility
   }
 
-  setCameraMode(mode: CameraMode): void {
-    const label = mode === 'orbit' ? 'Orbit' : 'OTS';
-    this.cameraModeEl.textContent = `${label} \u00b7 Tab`;
+  setCameraMode(_mode: CameraMode): void {
+    // Camera mode indicator removed — no-op for API compatibility
   }
 
   setCoordinates(x: number, y: number, z: number): void {

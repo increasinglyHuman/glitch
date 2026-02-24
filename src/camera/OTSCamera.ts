@@ -21,7 +21,6 @@ export class OTSCamera {
   private followObserver: Observer<Scene> | null = null;
 
   // Reusable vectors (GC prevention pattern from HybridSLCamera)
-  private _tempTarget = Vector3.Zero();
   private _tempMovement = Vector3.Zero();
   private _lastPos = Vector3.Zero();
   private _forwardHint = new Vector3(0, 0, 1);
@@ -54,9 +53,31 @@ export class OTSCamera {
   }
 
   activate(canvas: HTMLCanvasElement): void {
-    this.camera.inputs.clear();
-    this.camera.inputs.addMouseWheel();
-    this.camera.inputs.addPointers();
+    const pos = this.mannequin.getPosition();
+    const alpha = Math.PI / 2;
+    const beta = DEFAULT_BETA;
+    const radius = DEFAULT_RADIUS;
+
+    // Compute both target and camera position explicitly.
+    // This makes rebuildAnglesAndRadius a no-op (values already correct).
+    const tx = pos.x;
+    const ty = pos.y + HEIGHT_OFFSET;
+    const tz = pos.z;
+    const sinB = Math.sin(beta);
+    const camX = tx + radius * sinB * Math.sin(alpha);
+    const camY = ty + radius * Math.cos(beta);
+    const camZ = tz + radius * sinB * Math.cos(alpha);
+
+    console.log(`[Glitch][OTS] activate: mannequin=(${pos.x.toFixed(2)}, ${pos.y.toFixed(2)}, ${pos.z.toFixed(2)}) → cam=(${camX.toFixed(2)}, ${camY.toFixed(2)}, ${camZ.toFixed(2)}) target=(${tx.toFixed(2)}, ${ty.toFixed(2)}, ${tz.toFixed(2)})`);
+
+    // Set position FIRST so rebuildAnglesAndRadius computes correct values
+    this.camera.position.copyFromFloats(camX, camY, camZ);
+    this.camera.setTarget(new Vector3(tx, ty, tz));
+
+    // Verify alpha/beta/radius match (rebuildAnglesAndRadius should produce correct values)
+    console.log(`[Glitch][OTS] post-rebuild: alpha=${this.camera.alpha.toFixed(3)} beta=${this.camera.beta.toFixed(3)} radius=${this.camera.radius.toFixed(2)}`);
+
+    this._lastPos.copyFrom(pos);
     this.camera.attachControl(canvas, true);
 
     // Start elastic band follow
@@ -84,14 +105,18 @@ export class OTSCamera {
     }
 
     // Desired target = avatar + height offset
-    this._tempTarget.set(avatarPos.x, avatarPos.y + HEIGHT_OFFSET, avatarPos.z);
+    const tx = avatarPos.x;
+    const ty = avatarPos.y + HEIGHT_OFFSET;
+    const tz = avatarPos.z;
 
-    // Elastic band: lerp camera target toward avatar
-    const currentTarget = this.camera.getTarget();
-    const newX = currentTarget.x + (this._tempTarget.x - currentTarget.x) * SPRING_STRENGTH;
-    const newY = currentTarget.y + (this._tempTarget.y - currentTarget.y) * SPRING_STRENGTH;
-    const newZ = currentTarget.z + (this._tempTarget.z - currentTarget.z) * SPRING_STRENGTH;
-    this.camera.setTarget(new Vector3(newX, newY, newZ));
+    // Elastic band: lerp camera target toward avatar.
+    // CRITICAL: Mutate target directly — DO NOT call setTarget() here.
+    // setTarget() triggers rebuildAnglesAndRadius which recomputes alpha/beta/radius
+    // from camera.position, destroying our managed values every frame.
+    const t = this.camera.target;
+    t.x += (tx - t.x) * SPRING_STRENGTH;
+    t.y += (ty - t.y) * SPRING_STRENGTH;
+    t.z += (tz - t.z) * SPRING_STRENGTH;
 
     // Orbit alpha to stay behind movement direction
     if (this._tempMovement.lengthSquared() > 0.01) {
@@ -107,7 +132,7 @@ export class OTSCamera {
   }
 
   private blendAngle(current: number, target: number, amount: number): number {
-    let delta = ((target - current + Math.PI) % (Math.PI * 2)) - Math.PI;
+    const delta = ((target - current + Math.PI) % (Math.PI * 2)) - Math.PI;
     return current + delta * amount;
   }
 

@@ -4,12 +4,18 @@ import type { MovementState } from '../types/index.js';
 
 const WALK_SPEED = 3.0;
 const RUN_SPEED = 7.0;
-const JUMP_IMPULSE = 5.0;
+const BACKWARD_MULTIPLIER = 0.7;
+const STRAFE_MULTIPLIER = 0.8;
 const GRAVITY = -9.81;
-const ROTATION_SPEED = 8.0;
+const ROTATION_SPEED = 3.0; // radians/sec — smooth but responsive
+const JUMP_ANIM_DURATION = 1.0; // seconds — animation handles the visual jump
 
 /**
- * WASD character controller with gravity and ground raycast.
+ * WASD character controller.
+ * Movement is player-relative (matching World's pattern):
+ *   W/S = forward/backward in facing direction
+ *   A/D + W/S = turn while moving
+ *   A/D alone = strafe sideways
  */
 export class MannequinController {
   private mannequin: Mannequin;
@@ -18,6 +24,8 @@ export class MannequinController {
   private velocity = Vector3.Zero();
   private isGrounded = true;
   private jumpRequested = false;
+  private isPlayingJump = false;
+  private jumpAnimTimer = 0;
 
   private keys = {
     forward: false,
@@ -32,8 +40,8 @@ export class MannequinController {
   private keyupHandler: (e: KeyboardEvent) => void;
 
   // Reusable vectors (GC prevention)
-  private _moveDir = Vector3.Zero();
   private _rayOrigin = Vector3.Zero();
+  private _debugJumpFrame = 0;
 
   constructor(mannequin: Mannequin, scene: Scene) {
     this.mannequin = mannequin;
@@ -81,38 +89,56 @@ export class MannequinController {
     const pos = this.mannequin.getPosition();
     const root = this.mannequin.getRootNode();
     const speed = this.keys.shift ? RUN_SPEED : WALK_SPEED;
+    const movingForwardOrBack = this.keys.forward || this.keys.backward;
 
-    // Compute movement direction relative to mannequin facing
-    let inputX = 0;
-    let inputZ = 0;
-    if (this.keys.forward) inputZ += 1;
-    if (this.keys.backward) inputZ -= 1;
-    if (this.keys.left) inputX -= 1;
-    if (this.keys.right) inputX += 1;
+    // Rotation: A/D turn when W/S is held
+    if (movingForwardOrBack) {
+      let rotateY = 0;
+      if (this.keys.left) rotateY = -ROTATION_SPEED * dt;
+      if (this.keys.right) rotateY = ROTATION_SPEED * dt;
+      if (rotateY !== 0) {
+        root.rotation.y += rotateY;
+      }
+    }
 
-    const hasInput = inputX !== 0 || inputZ !== 0;
+    // Compute forward direction from player facing
+    const facing = root.rotation.y;
+    const forwardX = Math.sin(facing);
+    const forwardZ = Math.cos(facing);
+    // Right vector (perpendicular to forward on XZ plane)
+    const rightX = Math.cos(facing);
+    const rightZ = -Math.sin(facing);
+
+    // Accumulate movement in player-relative directions
+    let moveX = 0;
+    let moveZ = 0;
+
+    if (this.keys.forward) {
+      moveX += forwardX * speed;
+      moveZ += forwardZ * speed;
+    }
+    if (this.keys.backward) {
+      moveX -= forwardX * speed * BACKWARD_MULTIPLIER;
+      moveZ -= forwardZ * speed * BACKWARD_MULTIPLIER;
+    }
+
+    // Strafe: A/D alone (no forward/back held)
+    if (!movingForwardOrBack) {
+      if (this.keys.left) {
+        moveX -= rightX * speed * STRAFE_MULTIPLIER;
+        moveZ -= rightZ * speed * STRAFE_MULTIPLIER;
+      }
+      if (this.keys.right) {
+        moveX += rightX * speed * STRAFE_MULTIPLIER;
+        moveZ += rightZ * speed * STRAFE_MULTIPLIER;
+      }
+    }
+
+    const hasInput = moveX !== 0 || moveZ !== 0;
 
     if (hasInput) {
-      // Determine facing angle from camera-relative input
-      const camera = this.scene.activeCamera;
-      if (camera) {
-        // Get camera forward on XZ plane
-        const camForward = camera.getForwardRay().direction;
-        const camAngle = Math.atan2(camForward.x, camForward.z);
-        const inputAngle = Math.atan2(inputX, inputZ);
-        const targetAngle = camAngle + inputAngle;
-
-        // Smooth rotation
-        let angleDiff = targetAngle - root.rotation.y;
-        angleDiff = ((angleDiff + Math.PI) % (Math.PI * 2)) - Math.PI;
-        root.rotation.y += angleDiff * Math.min(1, ROTATION_SPEED * dt);
-      }
-
-      // Move in mannequin's forward direction
-      const facing = root.rotation.y;
-      this._moveDir.set(Math.sin(facing) * speed, 0, Math.cos(facing) * speed);
-      this.velocity.x = this._moveDir.x;
-      this.velocity.z = this._moveDir.z;
+      this.velocity.x = moveX;
+      this.velocity.z = moveZ;
     } else {
       // Decelerate horizontal
       this.velocity.x *= Math.max(0, 1 - 10 * dt);
@@ -121,46 +147,64 @@ export class MannequinController {
       if (Math.abs(this.velocity.z) < 0.01) this.velocity.z = 0;
     }
 
-    // Jump
-    if (this.jumpRequested && this.isGrounded) {
-      this.velocity.y = JUMP_IMPULSE;
-      this.isGrounded = false;
+    // Jump — animation-only (the Jump animation handles vertical motion visually)
+    if (this.jumpRequested && this.isGrounded && !this.isPlayingJump) {
+      this.isPlayingJump = true;
+      this.jumpAnimTimer = 0;
       this.jumpRequested = false;
+      console.log(`[Glitch][Jump] PLAY: pos.y=${pos.y.toFixed(3)}`);
+    }
+    if (this.isPlayingJump) {
+      this.jumpAnimTimer += dt;
+      if (this.jumpAnimTimer >= JUMP_ANIM_DURATION) {
+        this.isPlayingJump = false;
+        console.log(`[Glitch][Jump] DONE: timer=${this.jumpAnimTimer.toFixed(2)}s`);
+      }
     }
 
-    // Gravity
+    // Gravity (only for actual falling — walking off ledges, not jumps)
     if (!this.isGrounded) {
       this.velocity.y += GRAVITY * dt;
     }
 
-    // Apply velocity
+    // Apply velocity (no vertical physics during animation jump)
     pos.x += this.velocity.x * dt;
-    pos.y += this.velocity.y * dt;
+    if (!this.isPlayingJump) {
+      pos.y += this.velocity.y * dt;
+    }
     pos.z += this.velocity.z * dt;
 
-    // Ground raycast
+    // Ground raycast — only check the grid floor (not mannequin's own meshes)
     this._rayOrigin.set(pos.x, pos.y + 1.0, pos.z);
     const ray = new Ray(this._rayOrigin, Vector3.Down(), 2.0);
-    const pick = this.scene.pickWithRay(ray, (mesh) => mesh.name === 'grid' || mesh.isPickable);
+    const pick = this.scene.pickWithRay(ray, (mesh) => mesh.name === 'grid');
 
     if (pick?.hit && pick.pickedPoint) {
       const groundY = pick.pickedPoint.y;
       if (pos.y <= groundY) {
+        if (!this.isGrounded) {
+          console.log(`[Glitch][Jump] LAND: vel.y=${this.velocity.y.toFixed(2)} pos.y=${pos.y.toFixed(3)} groundY=${groundY.toFixed(3)}`);
+        }
         pos.y = groundY;
         this.velocity.y = 0;
         this.isGrounded = true;
       }
-    } else if (pos.y < -50) {
-      // Safety net: respawn at origin if fallen through
-      pos.set(0, 5, 0);
-      this.velocity.set(0, 0, 0);
+    } else {
+      if (!this.isGrounded && this._debugJumpFrame++ % 30 === 0) {
+        console.log(`[Glitch][Jump] AIRBORNE: vel.y=${this.velocity.y.toFixed(2)} pos.y=${pos.y.toFixed(3)} rayHit=false`);
+      }
+      if (pos.y < -50) {
+        // Safety net: respawn at origin if fallen through
+        pos.set(0, 5, 0);
+        this.velocity.set(0, 0, 0);
+      }
     }
 
     this.mannequin.setPosition(pos);
   }
 
   getMovementState(): MovementState {
-    if (!this.isGrounded && this.velocity.y > 0) return 'jumping';
+    if (this.isPlayingJump) return 'jumping';
     if (!this.isGrounded && this.velocity.y <= 0) return 'falling';
     const hSpeed = Math.sqrt(this.velocity.x ** 2 + this.velocity.z ** 2);
     if (hSpeed < 0.1) return 'idle';

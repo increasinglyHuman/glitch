@@ -49,45 +49,37 @@ describe('AnimationManager', () => {
     expect(mgr.getCurrentState()).toBe('jump');
   });
 
-  it('transitions jump → fall when velocity turns negative', () => {
+  it('jump stays in jump when falling (self-contained animation)', () => {
     const mgr = new AnimationManager();
     mgr.update('jumping', DT);
     expect(mgr.getCurrentState()).toBe('jump');
-    mgr.update('falling', DT);
-    expect(mgr.getCurrentState()).toBe('fall');
+    mgr.update('falling', DT); // downward arc — still playing Jump anim
+    expect(mgr.getCurrentState()).toBe('jump');
   });
 
-  it('transitions fall → land on ground contact', () => {
+  it('jump goes directly to idle on ground contact', () => {
     const mgr = new AnimationManager();
     mgr.update('jumping', DT);
-    mgr.update('falling', DT);
+    mgr.update('falling', DT); // downward arc
     mgr.update('idle', DT); // grounded
-    expect(mgr.getCurrentState()).toBe('land');
-  });
-
-  it('transitions land → idle after land duration', () => {
-    const mgr = new AnimationManager();
-    mgr.update('jumping', DT);
-    mgr.update('falling', DT);
-    mgr.update('idle', DT); // → land
-
-    // Tick enough frames to exceed land duration (0.3s)
-    for (let i = 0; i < 20; i++) {
-      mgr.update('idle', DT);
-    }
     expect(mgr.getCurrentState()).toBe('idle');
   });
 
-  it('transitions land → walk if moving when land completes', () => {
+  it('jump goes directly to walk if moving on landing', () => {
     const mgr = new AnimationManager();
     mgr.update('jumping', DT);
     mgr.update('falling', DT);
-    mgr.update('walking', DT); // → land
-
-    for (let i = 0; i < 20; i++) {
-      mgr.update('walking', DT);
-    }
+    mgr.update('walking', DT); // landed while moving
     expect(mgr.getCurrentState()).toBe('walk');
+  });
+
+  it('fall (ledge) goes directly to idle on ground contact', () => {
+    const mgr = new AnimationManager();
+    mgr.update('walking', DT);
+    mgr.update('falling', DT); // walked off ledge
+    expect(mgr.getCurrentState()).toBe('fall');
+    mgr.update('idle', DT); // grounded
+    expect(mgr.getCurrentState()).toBe('idle');
   });
 
   it('transitions walk → fall when not grounded', () => {

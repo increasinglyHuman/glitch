@@ -31,6 +31,8 @@ export class GlitchLifecycle {
 
   private container: HTMLElement;
   private canvas: HTMLCanvasElement;
+  private debugKeyHandler: ((e: KeyboardEvent) => void) | null = null;
+  private wireframeOn = false;
 
   constructor(container: HTMLElement, canvas: HTMLCanvasElement) {
     this.container = container;
@@ -69,11 +71,13 @@ export class GlitchLifecycle {
       // 6. Controller
       this.controller = new MannequinController(this.mannequin, scene);
 
-      // 7. Animation state machine
+      // 7. Animation state machine (bind GLB animations)
       this.animationManager = new AnimationManager();
+      this.animationManager.bindAnimations(this.mannequin.getAnimationGroups());
 
-      // 8. Cameras
+      // 8. Cameras (both track mannequin)
       this.orbitCamera = new OrbitCamera(scene);
+      this.orbitCamera.setMannequin(this.mannequin);
       this.otsCamera = new OTSCamera(scene, this.mannequin);
 
       // 9. HUD
@@ -104,10 +108,26 @@ export class GlitchLifecycle {
         this.hud.setFPS(this.glitchEngine.getFPS());
       });
 
-      // 12. Start rendering
+      // 12. Debug keys (F1 = dump state, F2 = wireframe toggle, F3 = inspector)
+      this.debugKeyHandler = (e: KeyboardEvent): void => {
+        if (e.code === 'F1') {
+          e.preventDefault();
+          this.dumpSceneState();
+        } else if (e.code === 'F2') {
+          e.preventDefault();
+          this.toggleWireframe();
+        } else if (e.code === 'F3') {
+          e.preventDefault();
+          this.toggleInspector();
+        }
+      };
+      window.addEventListener('keydown', this.debugKeyHandler);
+
+      // 13. Start rendering
       this.glitchEngine.startRenderLoop();
       this.state = 'running';
       console.log(`[Glitch] Running: ${config.glitchType} "${config.label}"`);
+      console.log('[Glitch] Debug keys: F1=dump state, F2=wireframe, F3=inspector');
     } catch (error) {
       this.state = 'disposed';
       throw error;
@@ -122,8 +142,82 @@ export class GlitchLifecycle {
     return this.state;
   }
 
+  private dumpSceneState(): void {
+    const scene = this.glitchEngine?.getScene();
+    if (!scene) return;
+    const cam = scene.activeCamera;
+    console.log('===== [Glitch] SCENE STATE DUMP (F1) =====');
+    console.log(`activeCamera: ${cam?.name ?? 'null'}`);
+    console.log(`activeCameras: [${scene.activeCameras?.map(c => c.name).join(', ') ?? ''}]`);
+    console.log(`scene.cameras: [${scene.cameras.map(c => c.name).join(', ')}]`);
+    console.log(`meshes (${scene.meshes.length}):`);
+    for (const m of scene.meshes) {
+      console.log(`  "${m.name}" visible=${m.isVisible} pickable=${m.isPickable} enabled=${m.isEnabled()} vertices=${m.getTotalVertices()}`);
+    }
+    console.log(`lights (${scene.lights.length}): [${scene.lights.map(l => l.name).join(', ')}]`);
+    if (cam) {
+      console.log(`cam position: (${cam.position.x.toFixed(2)}, ${cam.position.y.toFixed(2)}, ${cam.position.z.toFixed(2)})`);
+      if ('getTarget' in cam) {
+        const arc = cam as import('@babylonjs/core').ArcRotateCamera;
+        const t = arc.getTarget();
+        console.log(`cam target: (${t.x.toFixed(2)}, ${t.y.toFixed(2)}, ${t.z.toFixed(2)})`);
+        console.log(`cam alpha=${arc.alpha.toFixed(3)} beta=${arc.beta.toFixed(3)} radius=${arc.radius.toFixed(2)}`);
+        console.log(`cam viewport: x=${arc.viewport.x} y=${arc.viewport.y} w=${arc.viewport.width} h=${arc.viewport.height}`);
+      }
+    }
+    if (this.mannequin) {
+      const p = this.mannequin.getPosition();
+      console.log(`mannequin pos: (${p.x.toFixed(2)}, ${p.y.toFixed(2)}, ${p.z.toFixed(2)})`);
+    }
+    if (this.animationManager) {
+      console.log(`animation state: ${this.animationManager.getCurrentState()}`);
+    }
+    console.log('===== END DUMP =====');
+  }
+
+  private toggleWireframe(): void {
+    const scene = this.glitchEngine?.getScene();
+    if (!scene) return;
+    this.wireframeOn = !this.wireframeOn;
+    for (const mesh of scene.meshes) {
+      if (mesh.material) {
+        mesh.material.wireframe = this.wireframeOn;
+      }
+    }
+    console.log(`[Glitch] Wireframe: ${this.wireframeOn ? 'ON' : 'OFF'}`);
+  }
+
+  private async toggleInspector(): Promise<void> {
+    const scene = this.glitchEngine?.getScene();
+    if (!scene) return;
+
+    // Load inspector from CDN on first use (avoids bundling React + FluentUI)
+    if (!scene.debugLayer.isVisible()) {
+      if (!document.querySelector('script[data-babylon-inspector]')) {
+        console.log('[Glitch] Loading inspector from CDN...');
+        await new Promise<void>((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = 'https://cdn.babylonjs.com/inspector/babylon.inspector.bundle.js';
+          script.setAttribute('data-babylon-inspector', '1');
+          script.onload = () => resolve();
+          script.onerror = () => reject(new Error('Failed to load inspector'));
+          document.head.appendChild(script);
+        });
+      }
+      await scene.debugLayer.show({ overlay: true });
+      console.log('[Glitch] Inspector: ON');
+    } else {
+      scene.debugLayer.hide();
+      console.log('[Glitch] Inspector: OFF');
+    }
+  }
+
   dispose(): void {
     if (this.state === 'disposed') return;
+
+    if (this.debugKeyHandler) {
+      window.removeEventListener('keydown', this.debugKeyHandler);
+    }
 
     // Dispose in reverse order
     this.cameraSwitcher?.dispose();

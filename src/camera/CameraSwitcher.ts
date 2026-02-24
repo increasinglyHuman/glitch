@@ -48,6 +48,11 @@ export class CameraSwitcher {
   }
 
   setMode(mode: CameraMode): void {
+    const prevCam = this.scene.activeCamera;
+    console.log(`[Glitch][CamSwitch] ===== ${this.activeMode} → ${mode} =====`);
+    console.log(`[Glitch][CamSwitch] BEFORE: activeCamera="${prevCam?.name}", activeCameras=[${this.scene.activeCameras?.map(c => c.name).join(',')}], scene.cameras=[${this.scene.cameras.map(c => c.name).join(',')}]`);
+    console.log(`[Glitch][CamSwitch] scene meshes: ${this.scene.meshes.length}, visible: ${this.scene.meshes.filter(m => m.isVisible).length}`);
+
     // Deactivate current
     if (this.activeMode === 'orbit') {
       this.orbit.deactivate();
@@ -57,7 +62,11 @@ export class CameraSwitcher {
 
     this.activeMode = mode;
 
-    // Activate new
+    // IMPORTANT: Clear activeCameras — using it forces Babylon's multi-camera
+    // rendering path which causes black screen on camera switch.
+    // Single-camera mode only needs scene.activeCamera.
+    this.scene.activeCameras = [];
+
     if (mode === 'orbit') {
       this.orbit.activate(this.canvas);
       this.scene.activeCamera = this.orbit.getCamera();
@@ -66,9 +75,19 @@ export class CameraSwitcher {
       this.scene.activeCamera = this.ots.getCamera();
     }
 
+    const newCam = this.scene.activeCamera!;
+    console.log(`[Glitch][CamSwitch] AFTER: activeCamera="${newCam.name}", activeCameras=[${this.scene.activeCameras?.map(c => c.name).join(',')}]`);
+    console.log(`[Glitch][CamSwitch] cam pos=(${newCam.position.x.toFixed(2)}, ${newCam.position.y.toFixed(2)}, ${newCam.position.z.toFixed(2)})`);
+    if ('target' in newCam) {
+      const t = (newCam as import('@babylonjs/core').ArcRotateCamera).getTarget();
+      const arc = newCam as import('@babylonjs/core').ArcRotateCamera;
+      console.log(`[Glitch][CamSwitch] cam target=(${t.x.toFixed(2)}, ${t.y.toFixed(2)}, ${t.z.toFixed(2)}) alpha=${arc.alpha.toFixed(3)} beta=${arc.beta.toFixed(3)} radius=${arc.radius.toFixed(2)}`);
+      console.log(`[Glitch][CamSwitch] cam minZ=${arc.minZ} maxZ=${arc.maxZ} fov=${arc.fov.toFixed(3)}`);
+    }
+
     this.hud.setCameraMode(mode);
     this.hud.showCoordinates(mode === 'ots');
-    console.log(`[Glitch] Camera: ${mode}`);
+    console.log(`[Glitch][CamSwitch] ===== switch complete =====`);
   }
 
   getMode(): CameraMode {

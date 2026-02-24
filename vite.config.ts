@@ -15,7 +15,7 @@ export default defineConfig({
   build: {
     target: 'es2022',
     outDir: 'dist',
-    minify: 'terser',
+    minify: 'esbuild',
     rollupOptions: {
       output: {
         manualChunks: {
