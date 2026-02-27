@@ -124,7 +124,7 @@ export class AnimationManager {
     }
 
     if (this.currentState !== prev) {
-      console.log(`[Glitch] Animation: ${prev} → ${this.currentState}`);
+      if (__DEV__) console.log(`[Glitch] Animation: ${prev} → ${this.currentState}`);
       if (this.hasAnimations) {
         this.playState(this.currentState);
       }
@@ -138,13 +138,11 @@ export class AnimationManager {
     const shouldLoop = LOOPING_STATES.has(state);
     const speedRatio = SPEED_RATIOS[state] ?? 1.0;
 
-    console.log(`[Glitch][Anim] playState("${state}"): group="${nextGroup.name}" loop=${shouldLoop} speed=${speedRatio} isStarted=${nextGroup.isStarted} loopAnimation=${nextGroup.loopAnimation}`);
+    if (__DEV__) console.log(`[Glitch][Anim] playState("${state}"): group="${nextGroup.name}" loop=${shouldLoop} speed=${speedRatio}`);
 
     // Crossfade: blend out current, blend in next
     if (this.currentGroup && this.currentGroup !== nextGroup) {
       const outgoing = this.currentGroup;
-      console.log(`[Glitch][Anim] crossfade: "${outgoing.name}" → "${nextGroup.name}"`);
-
       // Stop outgoing immediately, then start next — simpler than weight blending
       outgoing.stop();
       nextGroup.start(shouldLoop, speedRatio);

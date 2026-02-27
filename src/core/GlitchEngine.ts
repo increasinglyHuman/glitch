@@ -104,6 +104,6 @@ export class GlitchEngine {
     this.engine?.dispose();
     this.scene = null;
     this.engine = null;
-    console.log('[Glitch] Engine disposed');
+    if (__DEV__) console.log('[Glitch] Engine disposed');
   }
 }

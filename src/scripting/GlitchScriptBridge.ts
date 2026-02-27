@@ -250,7 +250,7 @@ export class GlitchScriptBridge {
         if (mesh?.material && url) {
           if (UUID_RE.test(url)) {
             // UUID textures can't be resolved in preview — skip silently
-            console.log(`[GlitchBridge] Skipping UUID texture: ${url.slice(0, 8)}...`);
+            if (__DEV__) console.log(`[GlitchBridge] Skipping UUID texture: ${url.slice(0, 8)}...`);
           } else {
             (mesh.material as StandardMaterial).diffuseTexture = new Texture(url, this.scene);
           }
@@ -290,7 +290,7 @@ export class GlitchScriptBridge {
         const loop = (cmd.loop as boolean) ?? false;
         if (sound) {
           if (UUID_RE.test(sound)) {
-            console.log(`[GlitchBridge] Skipping UUID sound: ${sound.slice(0, 8)}...`);
+            if (__DEV__) console.log(`[GlitchBridge] Skipping UUID sound: ${sound.slice(0, 8)}...`);
           } else {
             // Stop existing sound on this object
             const existingSound = this.sounds.get(cmd.objectId as string);
@@ -334,7 +334,7 @@ export class GlitchScriptBridge {
 
       // === Unsupported (Phase 3+) — log and ignore ===
       default:
-        console.log(`[GlitchBridge] Unsupported command: ${cmd.type}`);
+        if (__DEV__) console.log(`[GlitchBridge] Unsupported command: ${cmd.type}`);
         break;
     }
   }

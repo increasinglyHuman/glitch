@@ -68,14 +68,12 @@ export class OTSCamera {
     const camY = ty + radius * Math.cos(beta);
     const camZ = tz + radius * sinB * Math.cos(alpha);
 
-    console.log(`[Glitch][OTS] activate: mannequin=(${pos.x.toFixed(2)}, ${pos.y.toFixed(2)}, ${pos.z.toFixed(2)}) → cam=(${camX.toFixed(2)}, ${camY.toFixed(2)}, ${camZ.toFixed(2)}) target=(${tx.toFixed(2)}, ${ty.toFixed(2)}, ${tz.toFixed(2)})`);
+    if (__DEV__) console.log(`[Glitch][OTS] activate: cam=(${camX.toFixed(2)}, ${camY.toFixed(2)}, ${camZ.toFixed(2)})`);
 
     // Set position FIRST so rebuildAnglesAndRadius computes correct values
     this.camera.position.copyFromFloats(camX, camY, camZ);
     this.camera.setTarget(new Vector3(tx, ty, tz));
 
-    // Verify alpha/beta/radius match (rebuildAnglesAndRadius should produce correct values)
-    console.log(`[Glitch][OTS] post-rebuild: alpha=${this.camera.alpha.toFixed(3)} beta=${this.camera.beta.toFixed(3)} radius=${this.camera.radius.toFixed(2)}`);
 
     this._lastPos.copyFrom(pos);
     this.camera.attachControl(canvas, true);

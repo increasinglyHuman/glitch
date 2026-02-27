@@ -79,14 +79,14 @@ export class MannequinController {
         if (this.isFlying) {
           // Exit flight — gravity will take over
           this.isFlying = false;
-          console.log('[Glitch][Fly] EXIT');
+          if (__DEV__) console.log('[Glitch][Fly] EXIT');
         } else {
           // Enter flight — initial upward boost to clear ground
           this.isFlying = true;
           this.isGrounded = false;
           this.velocity.y = FLY_SPEED;
           this.isPlayingJump = false; // cancel jump if mid-jump
-          console.log('[Glitch][Fly] ENTER');
+          if (__DEV__) console.log('[Glitch][Fly] ENTER');
         }
         break;
     }
@@ -183,13 +183,13 @@ export class MannequinController {
       this.isPlayingJump = true;
       this.jumpAnimTimer = 0;
       this.jumpRequested = false;
-      console.log(`[Glitch][Jump] PLAY: pos.y=${pos.y.toFixed(3)}`);
+      if (__DEV__) console.log(`[Glitch][Jump] PLAY: pos.y=${pos.y.toFixed(3)}`);
     }
     if (this.isPlayingJump) {
       this.jumpAnimTimer += dt;
       if (this.jumpAnimTimer >= JUMP_ANIM_DURATION) {
         this.isPlayingJump = false;
-        console.log(`[Glitch][Jump] DONE: timer=${this.jumpAnimTimer.toFixed(2)}s`);
+        if (__DEV__) console.log(`[Glitch][Jump] DONE: timer=${this.jumpAnimTimer.toFixed(2)}s`);
       }
     }
 
@@ -217,13 +217,13 @@ export class MannequinController {
           // Only auto-exit flight when descending toward ground
           if (this.velocity.y <= 0) {
             this.isFlying = false;
-            console.log(`[Glitch][Fly] GROUND EXIT: pos.y=${pos.y.toFixed(3)} groundY=${groundY.toFixed(3)}`);
+            if (__DEV__) console.log(`[Glitch][Fly] GROUND EXIT: pos.y=${pos.y.toFixed(3)} groundY=${groundY.toFixed(3)}`);
           }
           // Don't snap to ground while taking off
         }
         if (!this.isFlying) {
           if (!this.isGrounded) {
-            console.log(`[Glitch][Jump] LAND: vel.y=${this.velocity.y.toFixed(2)} pos.y=${pos.y.toFixed(3)} groundY=${groundY.toFixed(3)}`);
+            if (__DEV__) console.log(`[Glitch][Jump] LAND: vel.y=${this.velocity.y.toFixed(2)} pos.y=${pos.y.toFixed(3)} groundY=${groundY.toFixed(3)}`);
           }
           pos.y = groundY;
           this.velocity.y = 0;
@@ -231,7 +231,7 @@ export class MannequinController {
         }
       }
     } else {
-      if (!this.isGrounded && !this.isFlying && this._debugJumpFrame++ % 30 === 0) {
+      if (__DEV__ && !this.isGrounded && !this.isFlying && this._debugJumpFrame++ % 30 === 0) {
         console.log(`[Glitch][Jump] AIRBORNE: vel.y=${this.velocity.y.toFixed(2)} pos.y=${pos.y.toFixed(3)} rayHit=false`);
       }
       if (pos.y < -50) {

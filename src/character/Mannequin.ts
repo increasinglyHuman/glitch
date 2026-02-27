@@ -52,10 +52,9 @@ export class Mannequin {
       group.stop();
     }
 
-    console.log(
-      '[Glitch] Mannequin animations:',
-      this.animationGroups.map((g) => g.name),
-    );
+    if (__DEV__) {
+      console.log('[Glitch] Mannequin animations:', this.animationGroups.map((g) => g.name));
+    }
 
     // Position at spawn point
     this.root.position.set(spawnPoint.x, spawnPoint.y, spawnPoint.z);

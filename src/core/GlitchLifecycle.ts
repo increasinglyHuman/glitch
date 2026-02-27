@@ -148,7 +148,7 @@ export class GlitchLifecycle {
 
         this.bridge.onScripterReset(() => {
           this.scriptBridge?.reset();
-          console.log('[Glitch] Script preview reset');
+          if (__DEV__) console.log('[Glitch] Script preview reset');
         });
 
         this.bridge.onScripterCreatePrim((msg) => {
@@ -159,19 +159,17 @@ export class GlitchLifecycle {
             msg.scale,
             msg.name,
           );
-          console.log(`[Glitch] Created prim: ${msg.objectId}`);
+          if (__DEV__) console.log(`[Glitch] Created prim: ${msg.objectId}`);
         });
 
         this.bridge.onScripterLoad((msg) => {
-          console.log(`[Glitch] Script loaded: ${msg.scriptId} → ${msg.objectId}`);
+          if (__DEV__) console.log(`[Glitch] Script loaded: ${msg.scriptId} → ${msg.objectId}`);
         });
-
-        console.log('[Glitch] Script bridge ready');
       }
 
       this.state = 'running';
       console.log(`[Glitch] Running: ${config.glitchType} "${config.label}"`);
-      console.log('[Glitch] Debug keys: F1=dump state, F2=wireframe, F3=inspector');
+      if (__DEV__) console.log('[Glitch] Debug keys: F1=dump state, F2=wireframe, F3=inspector');
     } catch (error) {
       this.state = 'disposed';
       throw error;
@@ -291,6 +289,6 @@ export class GlitchLifecycle {
     this.glitchEngine = null;
 
     this.state = 'disposed';
-    console.log('[Glitch] Disposed');
+    if (__DEV__) console.log('[Glitch] Disposed');
   }
 }
