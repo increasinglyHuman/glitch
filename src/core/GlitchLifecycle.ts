@@ -10,6 +10,8 @@ import { OrbitCamera } from '../camera/OrbitCamera.js';
 import { OTSCamera } from '../camera/OTSCamera.js';
 import { CameraSwitcher } from '../camera/CameraSwitcher.js';
 import { HUD } from '../hud/HUD.js';
+import { GlitchScriptBridge } from '../scripting/GlitchScriptBridge.js';
+import type { PostMessageBridge } from '../bridge/PostMessageBridge.js';
 
 /**
  * Orchestrates the full Glitch lifecycle: spawn → run → dispose.
@@ -28,15 +30,22 @@ export class GlitchLifecycle {
   private otsCamera: OTSCamera | null = null;
   private cameraSwitcher: CameraSwitcher | null = null;
   private hud: HUD | null = null;
+  private scriptBridge: GlitchScriptBridge | null = null;
 
   private container: HTMLElement;
   private canvas: HTMLCanvasElement;
+  private bridge: PostMessageBridge | null = null;
   private debugKeyHandler: ((e: KeyboardEvent) => void) | null = null;
   private wireframeOn = false;
 
   constructor(container: HTMLElement, canvas: HTMLCanvasElement) {
     this.container = container;
     this.canvas = canvas;
+  }
+
+  /** Set the PostMessageBridge so lifecycle can wire scripter callbacks. */
+  setPostMessageBridge(bridge: PostMessageBridge): void {
+    this.bridge = bridge;
   }
 
   async spawn(config: GlitchConfig): Promise<void> {
@@ -125,6 +134,41 @@ export class GlitchLifecycle {
 
       // 13. Start rendering
       this.glitchEngine.startRenderLoop();
+
+      // 14. Scripter integration (only for scripter glitch type)
+      if (config.glitchType === 'scripter' && this.bridge) {
+        this.scriptBridge = new GlitchScriptBridge(scene, (msg) => {
+          window.parent.postMessage(msg, '*');
+        });
+
+        // Wire PostMessageBridge callbacks to script bridge
+        this.bridge.onScripterCommand((msg) => {
+          this.scriptBridge?.handle(msg.envelope);
+        });
+
+        this.bridge.onScripterReset(() => {
+          this.scriptBridge?.reset();
+          console.log('[Glitch] Script preview reset');
+        });
+
+        this.bridge.onScripterCreatePrim((msg) => {
+          this.scriptBridge?.createRootPrim(
+            msg.objectId,
+            msg.primType,
+            msg.position,
+            msg.scale,
+            msg.name,
+          );
+          console.log(`[Glitch] Created prim: ${msg.objectId}`);
+        });
+
+        this.bridge.onScripterLoad((msg) => {
+          console.log(`[Glitch] Script loaded: ${msg.scriptId} → ${msg.objectId}`);
+        });
+
+        console.log('[Glitch] Script bridge ready');
+      }
+
       this.state = 'running';
       console.log(`[Glitch] Running: ${config.glitchType} "${config.label}"`);
       console.log('[Glitch] Debug keys: F1=dump state, F2=wireframe, F3=inspector');
@@ -220,6 +264,7 @@ export class GlitchLifecycle {
     }
 
     // Dispose in reverse order
+    this.scriptBridge?.dispose();
     this.cameraSwitcher?.dispose();
     this.hud?.dispose();
     this.otsCamera?.dispose();
@@ -232,6 +277,7 @@ export class GlitchLifecycle {
     this.lighting?.dispose();
     this.glitchEngine?.dispose();
 
+    this.scriptBridge = null;
     this.cameraSwitcher = null;
     this.hud = null;
     this.otsCamera = null;

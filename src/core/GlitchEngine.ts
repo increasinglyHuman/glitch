@@ -35,7 +35,6 @@ export class GlitchEngine {
       this.engine = new Engine(this.canvas, true, {
         adaptToDeviceRatio: true,
         powerPreference: 'high-performance',
-        audioEngine: false,
       });
       this.webgpu = false;
     }
@@ -60,8 +59,8 @@ export class GlitchEngine {
     this.scene.clearColor = new Color4(0, 0, 0, 1);
     this.scene.autoClear = true;
     this.scene.autoClearDepthAndStencil = true;
-    this.scene.skipPointerMovePicking = true;
-    this.scene.skipPointerUpPicking = true;
+    this.scene.skipPointerMovePicking = false;
+    this.scene.skipPointerUpPicking = false;
   }
 
   startRenderLoop(): void {

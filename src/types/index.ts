@@ -44,6 +44,83 @@ export interface GlitchMessage {
   error?: string;
 }
 
+// === Scripter ↔ Glitch Protocol (ADR-005) ===
+
+export interface Quat {
+  x: number;
+  y: number;
+  z: number;
+  s: number;
+}
+
+/** Scripter → Glitch: forward a ScriptCommand */
+export interface ScripterCommandMessage {
+  type: 'scripter_command';
+  source: 'scripter';
+  envelope: {
+    scriptId: string;
+    containerId: string;
+    callId: number;
+    command: { type: string; [key: string]: unknown };
+  };
+}
+
+/** Scripter → Glitch: reset the preview scene */
+export interface ScripterResetMessage {
+  type: 'scripter_reset';
+  source: 'scripter';
+}
+
+/** Scripter → Glitch: create a prim before scripts run */
+export interface ScripterCreatePrimMessage {
+  type: 'scripter_create_prim';
+  source: 'scripter';
+  objectId: string;
+  primType?: number;
+  position?: Vec3;
+  rotation?: Quat;
+  scale?: Vec3;
+  name?: string;
+}
+
+/** Scripter → Glitch: inform Glitch that a script is loaded (informational) */
+export interface ScripterLoadMessage {
+  type: 'scripter_load';
+  source: 'scripter';
+  scriptId: string;
+  objectId: string;
+}
+
+/** Glitch → Scripter: scene event (touch, collision, etc.) */
+export interface ScripterEventMessage {
+  type: 'scripter_event';
+  source: 'glitch';
+  envelope: {
+    objectId: string;
+    event: { type: string; [key: string]: unknown };
+  };
+}
+
+/** Glitch → Scripter: console output from say/whisper/shout */
+export interface ScripterConsoleMessage {
+  type: 'scripter_console';
+  source: 'glitch';
+  channel: number;
+  message: string;
+  senderName: string;
+  objectId: string;
+  verb: string;
+}
+
+/** All scripter message types */
+export type ScripterMessage =
+  | ScripterCommandMessage
+  | ScripterResetMessage
+  | ScripterCreatePrimMessage
+  | ScripterLoadMessage
+  | ScripterEventMessage
+  | ScripterConsoleMessage;
+
 export interface GlitchConfig {
   glitchType: GlitchType;
   label: string;

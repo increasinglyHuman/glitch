@@ -21,6 +21,7 @@ async function boot(): Promise<void> {
 
   const bridge = new PostMessageBridge();
   const lifecycle = new GlitchLifecycle(container, canvas);
+  lifecycle.setPostMessageBridge(bridge);
 
   const launchGlitch = async (config: GlitchConfig): Promise<void> => {
     try {
